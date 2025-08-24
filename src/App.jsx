@@ -1,215 +1,301 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 
-// Simple UI components
-const Button = ({ children, onClick, disabled, color }) => (
-  <button
-    onClick={onClick}
-    disabled={disabled}
-    style={{
-      padding: "6px 12px",
-      margin: "2px",
-      cursor: disabled ? "not-allowed" : "pointer",
-      border: "1px solid #333",
-      borderRadius: "6px",
-      backgroundColor: color || "#111827",
-      color: "#fff",
-      fontWeight: "bold",
-      flexShrink: 0,
-    }}
-  >
-    {children}
-  </button>
-);
+function App() {
+  // Initial accounts pool
+  const initialAccounts = [
+    { username: "JackCrystalMystic200", password: "Generated$2799231", id: "8303546331", created: "4/13/2025", status: "Working" },
+    { username: "AltUser123456", password: "Generated$987654", id: "123456789", created: "4/14/2025", status: "Working" },
+    { username: "AltUser654321", password: "Generated$123456", id: "987654321", created: "4/15/2025", status: "Working" },
+  ];
 
-const Badge = ({ children, color }) => (
-  <span
-    style={{
-      padding: "2px 6px",
-      marginLeft: "4px",
-      backgroundColor: color || "#555",
-      borderRadius: "4px",
-      fontSize: "12px",
-      color: "#fff",
-    }}
-  >
-    {children}
-  </span>
-);
+  // Keys and roles
+  const keys = {
+    "premium48294729": "premium",
+    "applefan773": "owner",
+    "extreme48374937493": "extreme",
+    "FREE25": "free",
+  };
 
-const Card = ({ children, style }) => (
-  <div
-    style={{
-      borderRadius: "10px",
-      padding: "12px",
-      margin: "8px 0",
-      backgroundColor: "#1f2937",
-      color: "#fff",
-      width: "100%",
-      boxSizing: "border-box",
-      ...style,
-    }}
-  >
-    {children}
-  </div>
-);
+  // State
+  const [role, setRole] = useState(null);
+  const [enteredKey, setEnteredKey] = useState("");
+  const [displayName, setDisplayName] = useState("joshuaknows_you");
+  const [accountsPool] = useState(initialAccounts);
+  const [account, setAccount] = useState(null);
+  const [hasGenerated, setHasGenerated] = useState(false);
+  const [cooldown, setCooldown] = useState("0s");
+  const [usedAccounts, setUsedAccounts] = useState(() => {
+    return JSON.parse(localStorage.getItem("usedAccounts") || "[]");
+  });
 
-export default function AltGeneratorDashboard() {
-  const [cooldown, setCooldown] = useState(0);
-  const [status, setStatus] = useState("Working");
-  const statusColors = { Working: "#10b981", "Not Working": "#10b981", "Not Checked": "#10b981" };
-  const [combo, setCombo] = useState("");
+  // Persist used accounts
+  useEffect(() => {
+    localStorage.setItem("usedAccounts", JSON.stringify(usedAccounts));
+  }, [usedAccounts]);
 
-  // Cooldown timer
-  React.useEffect(() => {
-    if (cooldown <= 0) return;
-    const timer = setInterval(() => setCooldown((s) => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(timer);
-  }, [cooldown]);
+  // Sidebar hover glow
+  const [hoveredItem, setHoveredItem] = useState(null);
+  const sidebarItems = [
+    { name: "⚡ Generate" },
+    { name: "🔒 Accounts", extreme: true },
+    { name: "🔒 Cookie Checker", extreme: true },
+    { name: "🔒 Scrape", extreme: true },
+    { name: "🔔 Updates" },
+    { name: "👑 Upgrade" },
+  ];
 
-  const prettyTime = useMemo(() => {
-    const m = Math.floor(cooldown / 60);
-    const s = cooldown % 60;
-    return `${m}m ${s.toString().padStart(2, "0")}s`;
-  }, [cooldown]);
-
-  // Generate Alt using Vercel API
-  const generateAlt = async () => {
-    try {
-      const res = await fetch("/api/generate");
-      const data = await res.json();
-
-      if (data.error) {
-        alert(data.error);
-        return;
-      }
-
-      setCombo(data.alt);
-      setCooldown(300);
-    } catch (err) {
-      console.error(err);
-      alert("Error fetching alt");
+  // Redeem key
+  const redeemKey = () => {
+    const selectedRole = keys[enteredKey];
+    if (selectedRole) {
+      setRole(selectedRole);
+    } else {
+      alert("Invalid key!");
     }
   };
 
+  // Generate alt
+  const generateAlt = () => {
+    const nextAccount = accountsPool.find(a => !usedAccounts.includes(a.username));
+    if (!nextAccount) {
+      alert("No more unused accounts!");
+      return;
+    }
+
+    setUsedAccounts(prev => [...prev, nextAccount.username]);
+    setAccount(nextAccount);
+    setHasGenerated(true);
+
+    // 5-minute cooldown
+    let seconds = 5 * 60;
+    setCooldown(`${Math.floor(seconds / 60)}m ${seconds % 60}s`);
+    const timer = setInterval(() => {
+      seconds -= 1;
+      if (seconds <= 0) {
+        clearInterval(timer);
+        setCooldown("0s");
+      } else {
+        setCooldown(`${Math.floor(seconds / 60)}m ${seconds % 60}s`);
+      }
+    }, 1000);
+  };
+
+  // Generate premium/2010 alt (owner only)
+  const generatePremiumAlt = () => {
+    if (role !== "owner") {
+      alert("You don’t have permission to generate this account type!");
+      return;
+    }
+    generateAlt();
+  };
+
+  // Reset used alts (owner only)
+  const resetAlts = () => {
+    if (role !== "owner") return;
+    setUsedAccounts([]);
+    alert("All accounts have been reset!");
+  };
+
+  // Status buttons
+  const handleStatusClick = (status) => {
+    setAccount(prev => ({ ...prev, status }));
+  };
+  const statusButtonStyle = (active) => ({
+    flex: 1,
+    padding: "5px",
+    borderRadius: "5px",
+    border: "none",
+    backgroundColor: active ? "#ff3333" : "#330000",
+    color: active ? "#fff" : "#ccc",
+    cursor: "pointer",
+  });
+
+  // Styles
+  const sidebarStyle = {
+    width: "250px",
+    backgroundColor: "#1a0000",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+    padding: "20px",
+    color: "#fff",
+  };
+  const mainStyle = {
+    flex: 1,
+    backgroundColor: "#0b0b0b",
+    padding: "30px",
+    overflowY: "auto",
+  };
+  const cardStyle = {
+    backgroundColor: "#1a0000",
+    borderRadius: "10px",
+    padding: "15px",
+    marginTop: "20px",
+  };
+  const avatarStyle = {
+    width: "60px",
+    height: "60px",
+    borderRadius: "50%",
+    backgroundColor: "#330000",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "30px",
+  };
+  const buttonStyle = {
+    marginRight: "10px",
+    backgroundColor: "#ff3333",
+    border: "none",
+    padding: "5px 10px",
+    borderRadius: "5px",
+    cursor: "pointer",
+    color: "#fff",
+  };
+
+  // Key redemption screen
+  if (!role) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", backgroundColor: "#0b0b0b", color: "#fff", flexDirection: "column" }}>
+        <h2>Enter your key to redeem role</h2>
+        <input value={enteredKey} onChange={(e) => setEnteredKey(e.target.value)} style={{ padding: "10px", borderRadius: "5px", marginBottom: "10px" }} />
+        <button onClick={redeemKey} style={{ padding: "10px 15px", borderRadius: "5px", backgroundColor: "#ff3333", color: "#fff", border: "none", cursor: "pointer" }}>Redeem</button>
+      </div>
+    );
+  }
+
+  // Dashboard
   return (
-    <div
-      style={{
-        padding: "20px",
-        fontFamily: "sans-serif",
-        backgroundColor: "#111827",
-        minHeight: "100vh",
-        width: "100%",
-        maxWidth: "100%",
-        boxSizing: "border-box",
-        display: "flex",
-        justifyContent: "center",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "1200px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "16px",
-        }}
-      >
-        <h1 style={{ color: "#f43f5e", textAlign: "center" }}>Alt Generator Dashboard</h1>
-
-        {/* Navigation */}
-        <Card style={{ backgroundColor: "#111827", display: "flex", flexWrap: "wrap", justifyContent: "center" }}>
+    <div style={{ display: "flex", height: "100vh", fontFamily: "Segoe UI, sans-serif", color: "#fff" }}>
+      {/* Sidebar */}
+      <aside style={sidebarStyle}>
+        <div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "20px", color: "#ff3333" }}>
+          <span>👤</span> AltGenator
+        </div>
+        <nav>
+          <ul style={{ listStyle: "none", padding: 0 }}>
+            {sidebarItems.map((item, index) => (
+              <li
+                key={index}
+                onMouseEnter={() => setHoveredItem(index)}
+                onMouseLeave={() => setHoveredItem(null)}
+                style={{
+                  padding: "10px 0",
+                  color: item.name === "⚡ Generate" ? "#ff3333" : "#fff",
+                  transition: "0.2s",
+                  textShadow: hoveredItem === index ? "0 0 8px #ff3333" : "none",
+                  cursor: "pointer",
+                }}
+              >
+                {item.name}
+                {item.extreme && (
+                  <span style={{ backgroundColor: "#ff3333", borderRadius: "3px", padding: "2px 5px", fontSize: "10px", marginLeft: "5px" }}>Extreme</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div>
+          <a href="#" style={{ display: "block", color: "#ff6666", textDecoration: "none", marginBottom: "5px" }}>📧 Support</a>
+          <a href="#" style={{ display: "block", color: "#ff6666", textDecoration: "none" }}>💲 Earn Money</a>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", marginTop: "20px" }}>
+          <div style={{ width: "40px", height: "40px", borderRadius: "50%", backgroundColor: "#330000", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", marginRight: "10px" }}>👤</div>
           <div>
-            <strong style={{ color: "#f87171" }}>Navigation</strong>
+            <input
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Enter your display name"
+              style={{ padding: "5px", borderRadius: "5px", border: "none", marginBottom: "3px", width: "150px", color: "#fff", backgroundColor: "#330000" }}
+            />
+            <br />
+            <span style={{ color: "gold", fontSize: "12px" }}>
+              {role === "owner" ? "👑 Owner" :
+               role === "premium" ? "👑 Premium Access" :
+               role === "extreme" ? "👑 Extreme" :
+               role === "free" ? "Free Access" : ""}
+            </span>
           </div>
-          {["Generate", "Accounts", "Cookie Checker", "Scrape", "Updates"].map((item) => (
-            <Button
-              key={item}
-              color="#f43f5e"
-              onClick={() => {
-                if (item === "Accounts") alert("You don't have access to this");
-                if (item === "Updates") window.open("https://discord.gg/nQM3MqQEWP", "_blank");
-              }}
-            >
-              {item}
-            </Button>
-          ))}
-        </Card>
+        </div>
 
-        {/* Cooldown and Alt Generator */}
-        <Card>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
-            <strong>Cooldown:</strong> {prettyTime}
-            <Button onClick={generateAlt} disabled={cooldown > 0} color="#f87171">
-              Generate Alt
-            </Button>
-            <Badge color="#f43f5e">Alt</Badge>
+        {role === "owner" && (
+          <button onClick={resetAlts} style={{ marginTop: "20px", padding: "5px 10px", borderRadius: "5px", border: "none", backgroundColor: "#ff3333", color: "#fff", cursor: "pointer" }}>
+            Reset Alts
+          </button>
+        )}
+
+      </aside>
+
+      {/* Main */}
+      <main style={mainStyle}>
+        <h1 style={{ color: "#ff3333" }}>Account Generator</h1>
+        <p>Generate unlimited Roblox accounts instantly</p>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h2>Account Type Selection</h2>
+          <button style={{ backgroundColor: "#ff3333", color: "#fff", border: "none", borderRadius: "5px", padding: "5px 10px", cursor: "pointer" }}
+            onClick={generateAlt}>Generate Alt</button>
+        </div>
+
+        <p>Choose an account type to generate</p>
+
+        <div style={{ ...cardStyle, marginBottom: "15px", cursor: "pointer" }} onClick={generateAlt}>
+          <div>
+            <strong>Alt</strong> <span>{cooldown}</span>
+            <p>Generate Roblox alt account</p>
           </div>
-        </Card>
+        </div>
 
-        {/* Account Info */}
-        <Card>
-          <h3 style={{ color: "#f43f5e" }}>Account Info</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            <div>
-              Username:{" "}
-              <input
-                value={combo.split(":")[0] || ""}
-                readOnly
-                style={{
-                  fontFamily: "monospace",
-                  color: "#fff",
-                  backgroundColor: "#374151",
-                  border: "none",
-                  borderRadius: "4px",
-                  width: "100%",
-                }}
-              />
+        <div style={{ ...cardStyle, opacity: role === "owner" ? 1 : 0.6, marginBottom: "15px", cursor: role === "owner" ? "pointer" : "default" }} onClick={generatePremiumAlt}>
+          <div>
+            <strong>Random</strong>
+            <p>Generate random account with Robux or items</p>
+            {role !== "owner" && <button style={{ backgroundColor: "gold", border: "none", padding: "5px 10px", borderRadius: "5px", cursor: "pointer" }}>👑 Upgrade</button>}
+          </div>
+        </div>
+        <div style={{ ...cardStyle, opacity: role === "owner" ? 1 : 0.6, cursor: role === "owner" ? "pointer" : "default" }} onClick={generatePremiumAlt}>
+          <div>
+            <strong>2010 Unchecked</strong>
+            <p>Generate random account with 2010 join date</p>
+            {role !== "owner" && <button style={{ backgroundColor: "gold", border: "none", padding: "5px 10px", borderRadius: "5px", cursor: "pointer" }}>👑 Upgrade</button>}
+          </div>
+        </div>
+
+        {hasGenerated && account && (
+          <div style={cardStyle}>
+            <div style={{ display: "flex", gap: "15px", alignItems: "center", marginBottom: "15px" }}>
+              <div style={avatarStyle}>👤</div>
+              <div>
+                <h3>{account.username}</h3>
+                <p>ID: {account.id}</p>
+                <p>Created: {account.created}</p>
+                <span>Alt</span>
+                <div style={{ marginTop: "10px" }}>
+                  <button style={buttonStyle}>Roblox Profile</button>
+                  <button style={buttonStyle}>Roblox Login</button>
+                </div>
+              </div>
             </div>
             <div>
-              Password:{" "}
-              <input
-                value={combo.split(":")[1] || ""}
-                readOnly
-                style={{
-                  fontFamily: "monospace",
-                  color: "#fff",
-                  backgroundColor: "#374151",
-                  border: "none",
-                  borderRadius: "4px",
-                  width: "100%",
-                }}
-              />
-            </div>
-            <div>
-              Status:{" "}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "4px" }}>
-                {["Working", "Not Working", "Not Checked"].map((s) => (
-                  <Button
-                    key={s}
-                    onClick={() => setStatus(s)}
-                    color={status === s ? statusColors[s] : "#6b7280"}
-                  >
-                    {s}
-                  </Button>
-                ))}
+              <label>Username</label>
+              <input type="text" value={account.username} readOnly style={{ width: "100%", padding: "5px", borderRadius: "5px", border: "none", backgroundColor: "#330000", color: "#fff", marginBottom: "10px" }} />
+              <label>Password</label>
+              <input type="text" value={account.password} readOnly style={{ width: "100%", padding: "5px", borderRadius: "5px", border: "none", backgroundColor: "#330000", color: "#fff", marginBottom: "10px" }} />
+              <label>Combo Format (username:password)</label>
+              <input type="text" value={`${account.username}:${account.password}`} readOnly style={{ width: "100%", padding: "5px", borderRadius: "5px", border: "none", backgroundColor: "#330000", color: "#fff", marginBottom: "10px" }} />
+              <label>Account Status</label>
+              <div style={{ display: "flex", gap: "5px", marginTop: "5px" }}>
+                <button style={statusButtonStyle(account.status === "Working")} onClick={() => handleStatusClick("Working")}>Working</button>
+                <button style={statusButtonStyle(account.status === "Not Working")} onClick={() => handleStatusClick("Not Working")}>Not Working</button>
+                <button style={statusButtonStyle(account.status === "Not Checked")} onClick={() => handleStatusClick("Not Checked")}>Not Checked</button>
               </div>
             </div>
           </div>
-        </Card>
+        )}
 
-        {/* Links */}
-        <Card>
-          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "10px" }}>
-            <Button color="#f97316" onClick={() => window.open("https://discord.gg/nQM3MqQEWP", "_blank")}>
-              Support
-            </Button>
-            <Button color="#0ea5e9">Earn Money</Button>
-            <Button color="#a78bfa" onClick={() => window.open("https://discord.gg/nQM3MqQEWP", "_blank")}>
-              Discord
-            </Button>
-          </div>
-        </Card>
-      </div>
+      </main>
     </div>
   );
 }
+
+export default App;
