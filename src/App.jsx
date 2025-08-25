@@ -54,48 +54,6 @@ function App() {
     }
   };
 
-  // Generate alt
-  const generateAlt = () => {
-    const nextAccount = accountsPool.find(a => !usedAccounts.includes(a.username));
-    if (!nextAccount) {
-      alert("No more unused accounts!");
-      return;
-    }
-
-    setUsedAccounts(prev => [...prev, nextAccount.username]);
-    setAccount(nextAccount);
-    setHasGenerated(true);
-
-    // 5-minute cooldown
-    let seconds = 5 * 60;
-    setCooldown(`${Math.floor(seconds / 60)}m ${seconds % 60}s`);
-    const timer = setInterval(() => {
-      seconds -= 1;
-      if (seconds <= 0) {
-        clearInterval(timer);
-        setCooldown("0s");
-      } else {
-        setCooldown(`${Math.floor(seconds / 60)}m ${seconds % 60}s`);
-      }
-    }, 1000);
-  };
-
-  // Generate premium/2010 alt (owner only)
-  const generatePremiumAlt = () => {
-    if (role !== "owner") {
-      alert("You don’t have permission to generate this account type!");
-      return;
-    }
-    generateAlt();
-  };
-
-  // Reset used alts (owner only)
-  const resetAlts = () => {
-    if (role !== "owner") return;
-    setUsedAccounts([]);
-    alert("All accounts have been reset!");
-  };
-
   // Status buttons
   const handleStatusClick = (status) => {
     setAccount(prev => ({ ...prev, status }));
@@ -150,6 +108,71 @@ function App() {
     borderRadius: "5px",
     cursor: "pointer",
     color: "#fff",
+  };
+
+  // Cooldown logic
+  const startCooldown = (seconds) => {
+    setCooldown(`${Math.floor(seconds / 60)}m ${seconds % 60}s`);
+    const timer = setInterval(() => {
+      seconds -= 1;
+      if (seconds <= 0) {
+        clearInterval(timer);
+        setCooldown("0s");
+        localStorage.removeItem("cooldownTimestamp");
+      } else {
+        setCooldown(`${Math.floor(seconds / 60)}m ${seconds % 60}s`);
+      }
+    }, 1000);
+  };
+
+  // On component mount, restore cooldown
+  useEffect(() => {
+    const savedTimestamp = localStorage.getItem("cooldownTimestamp");
+    if (savedTimestamp) {
+      const now = Date.now();
+      const remaining = Math.floor((savedTimestamp - now) / 1000);
+      if (remaining > 0) startCooldown(remaining);
+    }
+  }, []);
+
+  // Generate alt
+  const generateAlt = () => {
+    if (cooldown !== "0s") {
+      alert("Please wait for the cooldown to finish!");
+      return;
+    }
+
+    const nextAccount = accountsPool.find(a => !usedAccounts.includes(a.username));
+    if (!nextAccount) {
+      alert("No more unused accounts!");
+      return;
+    }
+
+    setUsedAccounts(prev => [...prev, nextAccount.username]);
+    setAccount(nextAccount);
+    setHasGenerated(true);
+
+    let seconds = 5 * 60; // 5-minute cooldown
+    startCooldown(seconds);
+    localStorage.setItem("cooldownTimestamp", Date.now() + seconds * 1000);
+  };
+
+  // Generate premium/2010 alt (owner only)
+  const generatePremiumAlt = () => {
+    if (role !== "owner") {
+      alert("You don’t have permission to generate this account type!");
+      return;
+    }
+    generateAlt();
+  };
+
+  // Reset used alts (owner only)
+  const resetAlts = () => {
+    if (role !== "owner") return;
+    setUsedAccounts([]);
+    localStorage.removeItem("cooldownTimestamp");
+    setCooldown("0s");
+    alert("All accounts have been reset!");
   };
 
   // Key redemption screen
@@ -223,7 +246,6 @@ function App() {
             Reset Alts
           </button>
         )}
-
       </aside>
 
       {/* Main */}
@@ -234,7 +256,7 @@ function App() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <h2>Account Type Selection</h2>
           <button style={{ backgroundColor: "#ff3333", color: "#fff", border: "none", borderRadius: "5px", padding: "5px 10px", cursor: "pointer" }}
-            onClick={generateAlt}>Generate Alt</button>
+            onClick={generateAlt} disabled={cooldown !== "0s"}>Generate Alt</button>
         </div>
 
         <p>Choose an account type to generate</p>
@@ -253,6 +275,7 @@ function App() {
             {role !== "owner" && <button style={{ backgroundColor: "gold", border: "none", padding: "5px 10px", borderRadius: "5px", cursor: "pointer" }}>👑 Upgrade</button>}
           </div>
         </div>
+
         <div style={{ ...cardStyle, opacity: role === "owner" ? 1 : 0.6, cursor: role === "owner" ? "pointer" : "default" }} onClick={generatePremiumAlt}>
           <div>
             <strong>2010 Unchecked</strong>
